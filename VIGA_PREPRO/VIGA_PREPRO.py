@@ -18,9 +18,50 @@ import numpy as np
 ################################################################################
 # BIBLIOTECAS DESENVOLVEDORES GPEE
 
-def PROP_GEOMETRICA(B_W, H):
+def PROP_GEOMETRICA_I(H, B_FS, B_FI, B_W, H_S, H_I, H_SI, H_II):
     """
-    Esta função determina as propriedades geométricas da viga.
+    Esta função determina as propriedades geométricas de uma seção I.
+
+    Entrada:
+    H         | Altura da viga                                     | m    | float
+    B_FS      | Base de mesa superior da viga                      | m    | float
+    B_FI      | Base de mesa inferior da viga                      | m    | float
+    B_W       | Base de alma da viga                               | m    | float
+    H_S       | Altura de mesa superior da viga                    | m    | float
+    H_I       | Altura de mesa inferior da viga                    | m    | float
+    H_SI      | Altura inclinada de mesa superior da viga          | m    | float
+    H_II      | Altura inclinada de mesa inferior da viga          | m    | float
+
+    Saída:
+    A_C       | Área da  seção transversal da viga                 | m²   | float
+    I_C       | Inércia da viga                                    | m^4  | float
+    Y_SUP     | Ordenada da fibra superior                         | m    | float 
+    Y_INF     | Ordenada da fibra inferior                         | m    | float
+    W_SUP     | Modulo de resistência superior                     | m³   | float
+    W_INF     | Modulo de resistência inferior                     | m³   | float
+    """
+    A_1 = B_W * H
+    A_2 = (B_FS - B_W) * H_S
+    A_3 = ((B_FS - B_W) * H_SI) / 2
+    A_4 = (B_FI - B_W) * H_I
+    A_5 = ((B_FI - B_W) * H_I)/2
+    A_C = A_1 + A_2 + A_3 + A_4 + A_5   
+    Y_CG = (A_1 * (H/2) + A_2 * (H - H_S / 2) + A_3 * (H - H_S - H_SI / 2) + A_4 * (H_I / 2) + A_5 * (H_I + H_II)) / A_C
+    I_1 = (B_W * H**3) / 12 + A_1 * (H / 2 - Y_CG)**2 
+    I_2 = ((B_FS - B_W)* H_S**3) / 12 + A_2 * (H - H_S/2 - Y_CG)**2 
+    I_3 = ((B_FS - B_W)* H_SI**3) / 36 + A_3 * (H - H_S - H_SI / 3 - Y_CG)**2 
+    I_4 = ((B_FI - B_W)* H_I**3) / 12 + A_4 * (Y_CG - H_I / 2)**2 
+    I_5 = ((B_FI - B_W)* H_II**3) / 36 + A_5 * (Y_CG - H_I - H_II / 3)**2 
+    I_C = I_1 + I_2 + I_3 + I_4 + I_5
+    Y_SUP = H - Y_CG 
+    Y_INF = Y_CG  
+    W_SUP = I_C / Y_SUP 
+    W_INF = I_C / Y_INF    
+    return A_C, I_C, Y_SUP, Y_INF, W_SUP, W_INF
+
+def PROP_GEOMETRICA_RET(B_W, H):
+    """
+    Esta função determina as propriedades geométricas de uma seção retangular.
 
     Entrada:
     B_W       | Largura da viga                        | m    | float 
