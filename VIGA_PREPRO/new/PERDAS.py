@@ -49,7 +49,7 @@ def PERDA_DESLIZAMENTO_ANCORAGEM(P_IT0, SIGMA_PIT0, A_SCP, L_0, DELTA_ANC, E_SCP
     DELTAPERC = (DELTAP / P_IT0) * 100
     return DELTAPERC, P_IT1, SIGMA_PIT1
 
-def PERDA_DEFORMACAO_CONCRETO(E_SCP, E_CCP, P_IT0, SIGMA_PIT0, A_C, I_C, E_P, M_GPP):
+def PERDA_DEFORMACAO_CONCRETO(E_SCP, E_CCP, P_IT0, SIGMA_PIT0, A_SCP, A_C, I_C, E_P, M_GPP):
     """
     Esta função determina a perda de protensão devido a deformação inicial do concreto. 
     
@@ -58,7 +58,8 @@ def PERDA_DEFORMACAO_CONCRETO(E_SCP, E_CCP, P_IT0, SIGMA_PIT0, A_C, I_C, E_P, M_
     E_CCP       | Módulo de Young do concreto                       | kN/m² | float
     P_IT0       | Carga inicial de protensão                        | kN    | float
     SIGMA_PIT0  | Tensão inicial de protensão                       | kN/m² | float
-    A_C         | Área bruta da seção                               | m²    | float 
+    A_C         | Área bruta da seção                               | m²    | float
+    A_SCP       | Área de total de armadura protendida              | m²    | float
     I_C         | Inércia da seção bruta                            | m^4   | float
     E_P         | Excentricidade de protensão                       | m     | float 
     M_GPP       | Momento fletor devido ao peso próprio             | kN.m  | float 
@@ -419,8 +420,8 @@ def PHI_FLUENCIA(F_CKJ, F_CK, U, A_C, MU_AR, ABAT, T_0, T_1, TEMP, TIPO_PERDA, T
     Esta função determina os fatores de fluência φ(t, t_0) de estruturas de concreto.
 
     Entrada:
-    F_CK                | Resistência característica à compressão                    | kN/m²  | float   
-    F_CKJ               | Resistência característica à compressão idade J            | kN/m²  | float
+    F_CK                | Resistência característica à compressão                    | kN/m² | float   
+    F_CKJ               | Resistência característica à compressão idade J            | kN/m² | float
     U                   | Umidade do ambiente no intervalo de tempo de análise       | %     | float
     A_C                 | Área bruta da seção                                        | m²    | float 
     MU_AR               | Parte do perímetro externo da seção em contato com ar      | m     | float
@@ -437,7 +438,7 @@ def PHI_FLUENCIA(F_CKJ, F_CK, U, A_C, MU_AR, ABAT, T_0, T_1, TEMP, TIPO_PERDA, T
                         |       'FLUENCIA' - Fluência                                |       |   
     
     Saída:
-    PHI                 | Fator de fluência                                          |        | float
+    PHI                 | Fator de fluência                                          |       | float
     """
     # Fator PHI_A
     F_CK /= 1E3
@@ -470,9 +471,11 @@ def PHI_FLUENCIA(F_CKJ, F_CK, U, A_C, MU_AR, ABAT, T_0, T_1, TEMP, TIPO_PERDA, T
     T_0FIC = CALCULO_TEMPO_FICTICIO(T_0, TEMP, TIPO_PERDA, TIPO_ENDURECIMENTO)
     T_1FIC = CALCULO_TEMPO_FICTICIO(T_1, TEMP, TIPO_PERDA, TIPO_ENDURECIMENTO)
     DELTA_T = T_1FIC - T_0FIC
-    BETAD = (DELTA_T + 20) / (DELTA_T + 70)
+    BETA_D = (DELTA_T + 20) / (DELTA_T + 70)
     BETA_F0, _, _, _, _ = BETAF_FLUENCIA(T_0FIC, H_FIC)
     BETA_F1, _, _, _, _ = BETAF_FLUENCIA(T_1FIC, H_FIC)
+    # Coeficiente de fluência
+    PHI = PHI_A + PHI_F * (BETA_F1 - BETA_F0) + PHI_D * BETA_D
     return PHI
 
 def PERDA_POR_FLUENCIA_NO_CONCRETO(P_IT0, SIGMA_PIT0, A_SCP, PHI, E_SCP, E_CCP, SIGMA_CABO):
@@ -483,7 +486,7 @@ def PERDA_POR_FLUENCIA_NO_CONCRETO(P_IT0, SIGMA_PIT0, A_SCP, PHI, E_SCP, E_CCP, 
     PHI         | Fator de fluência para cada carregamento estudado  |       | Py list
     E_SCP       | Módulo de Young do aço protendido                  | kN/m² | float
     E_CCP       | Módulo de Young do concreto                        | kN/m² | float
-    SIGMA_CABO  | Tensões no nível dos cabos                         | kN/m² | float
+    SIGMA_CABO  | Tensões no nível dos cabos                         | kN/m² | Py list
     P_IT0       | Carga inicial de protensão                         | kN    | float
     SIGMA_PIT0  | Tensão inicial de protensão                        | kN/m² | float
     A_SCP       | Área de total de armadura protendida               | m²    | float
@@ -491,7 +494,7 @@ def PERDA_POR_FLUENCIA_NO_CONCRETO(P_IT0, SIGMA_PIT0, A_SCP, PHI, E_SCP, E_CCP, 
     Saída:
     DELTAPERC   | Perda percentual de protensão                      | %     | float
     P_IT1       | Carga final de protensão                           | kN    | float
-    SIGMA_PIT1  | Tensão inicial de protensão                        | kN/m² | Py list
+    SIGMA_PIT1  | Tensão inicial de protensão                        | kN/m² | float
     """
     TAM = len(PHI)
     # Perdas de protensão
@@ -527,7 +530,7 @@ def INTERACAO_ENTRE_PERDAS_PROGRESSIVAS(E_P, A_C, I_C, E_SCP, E_CCP28, DELTASIGM
     Saída:
     DELTAPERC           | Perda percentual de protensão              | %     | float
     P_IT1               | Carga final de protensão                   | kN    | float
-    SIGMA_PIT1          | Tensão inicial de protensão                | kN/m² | Py list
+    SIGMA_PIT1          | Tensão inicial de protensão                | kN/m² | float
     """
     # Perdas de protensão
     PSI /= 1E2

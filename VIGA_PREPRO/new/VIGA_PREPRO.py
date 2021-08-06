@@ -523,7 +523,7 @@ def DEFORMACAO_ACO(E_SCP, SIGMA, EPSILON_P, EPSILON_Y, F_P, F_Y):
         EPSILON = (SIGMA - F_Y) / AUX + EPSILON_Y
     return EPSILON
 
-def AREA_ACO_FNS_RETANGULAR_SIMPLES(TIPO_CONCRETO, M_SD, F_CK, B_W, D, E_SCP, SIGMA, EPSILON_P, EPSILON_Y, F_P, F_Y):
+def AREA_ACO_LONGITUDINAL_CP_RET(M_SD, F_CK, B_W, D, E_SCP, SIGMA, EPSILON_P, EPSILON_Y, F_P, F_Y):
     """
     Esta função determina a área de aço em elementos de concreto quando submetido a um momento fletor M_SD
     
@@ -532,7 +532,7 @@ def AREA_ACO_FNS_RETANGULAR_SIMPLES(TIPO_CONCRETO, M_SD, F_CK, B_W, D, E_SCP, SI
                    |       'CA' - Concreto armado                                   |       |
     M_SD           | Momento de cálculo                                             | kN.m  | float
     F_CK           | Resistência característica à compressão                        | kN/m² | float
-    B_W            | Largura da viga                                                | m     | float  
+    B_W            | Largura da viga                                                | m     | float
     D              | Altura útil da seção                                           | m     | float
     E_SCP          | Módulo de elasticidade do aço protendido                       | kN/m² | float
     SIGMA          | Tensão correspondente a tensão EPSILON desejada                | kN/m² | float
@@ -587,13 +587,107 @@ def AREA_ACO_FNS_RETANGULAR_SIMPLES(TIPO_CONCRETO, M_SD, F_CK, B_W, D, E_SCP, SI
     # Braço de alavanca Z
     Z = D - 0.50 * LAMBDA * X
     # Área de aço As
-    if TIPO_CONCRETO == 'CP':
+    EPSILON_SAUX = DEFORMACAO_ACO(E_SCP, SIGMA, EPSILON_P, EPSILON_Y, F_P, F_Y)
+    EPSILON_ST = EPSILON_S + EPSILON_SAUX
+    F_YD = TENSAO_ACO(E_SCP, EPSILON_ST, EPSILON_P, EPSILON_Y, F_P, F_Y)
+    A_S = M_SD / (Z * F_YD)
+    return X, EPSILON_S, EPSILON_C, Z, A_S
+
+def AREA_ACO_LONGITUDINAL_CP_T(M_SD, F_CK, B_W, B_F, H_F, D, E_SCP, SIGMA, EPSILON_P, EPSILON_Y, F_P, F_Y):
+    """
+    Esta função determina a área de aço em elementos de concreto quando submetido a um momento fletor M_SD
+    
+    TIPO_CONCRETO  | Defina se é concreto protendido ou armado                      |       | string
+                   |       'CP' - Concreto protendido                               |       |
+                   |       'CA' - Concreto armado                                   |       |
+    M_SD           | Momento de cálculo                                             | kN.m  | float
+    F_CK           | Resistência característica à compressão                        | kN/m² | float
+    B_W            | Largura da viga                                                | m     | float
+    B_F            | Largura da mesa                                                | m     | float
+    H_F            | Altura da mesa                                                 | m     | float
+    D              | Altura útil da seção                                           | m     | float
+    E_SCP          | Módulo de elasticidade do aço protendido                       | kN/m² | float
+    SIGMA          | Tensão correspondente a tensão EPSILON desejada                | kN/m² | float
+    EPSILON_P      | Deformação última do aço                                       |       | float
+    EPSILON_Y      | Deformação escoamento do aço                                   |       | float
+    F_Y            | Tensão de escoamento do aço                                    | kN/m² | float
+    F_P            | Tensão última do aço                                           | kN/m² | float
+
+    Saída:
+    X              | Linha neutra da seção medida da parte externa comprimida ao CG | m     | float  
+    Z              | Braço de alvanca                                               | m     | float    
+    A_S            | Área de aço necessária na seção                                | m²    | float
+    EPSILON_S      | Deformação do aço                                              |       | float
+    EPSILON_C      | Deformação do concreto                                         |       | float
+    """
+    # Determinação dos fatores de cálculo de X e A_S
+    F_CK /= 1E3
+    if F_CK >  50:
+        LAMBDA = 0.80 - ((F_CK - 50) / 400)
+        ALPHA_C = (1.00 - ((F_CK - 50) / 200)) * 0.85
+        EPSILON_C2 = 2.0 + 0.085 * (F_CK - 50) ** 0.53
+        EPSILON_C2 = EPSILON_C2 / 1000
+        EPSILON_CU = 2.6 + 35.0 * ((90 - F_CK) / 100) ** 4
+        EPSILON_CU = EPSILON_CU / 1000
+        KX_23 = EPSILON_CU / (EPSILON_CU + 10 / 1000)
+        KX_34 = 0.35
+    else:
+        LAMBDA = 0.80
+        ALPHA_C = 0.85
+        EPSILON_C2 = 2.0 / 1000
+        EPSILON_CU = 3.5 / 1000
+        KX_23 = EPSILON_CU / (EPSILON_CU + 10 / 1000)
+        KX_34 = 0.45
+    # Linhas neutra X
+    F_CK *= 1E3
+    F_CD = F_CK / 1.40
+    B_WTESTE = B_F
+    PARTE_1 = M_SD / (B_WTESTE * ALPHA_C * F_CD)
+    NUMERADOR = D - np.sqrt(D ** 2 - 2 * PARTE_1)
+    DENOMINADOR = LAMBDA
+    X = NUMERADOR / DENOMINADOR
+    if (LAMBDA * X) <= H_F:
+        # Deformações nas fibras comprimidas (concreto) e tracionadas (aço) 
+        KX = X / D
+        if KX > KX_23:
+            EPSILON_C = EPSILON_CU
+            EPSILON_S = (1 -  KX) * EPSILON_C 
+        elif KX < KX_23:
+            EPSILON_S = 10 / 1000
+            EPSILON_C = EPSILON_S / (1 - KX)
+        elif KX == KX_23:
+            EPSILON_S = 10 / 1000
+            EPSILON_C = EPSILON_CU 
+        # Braço de alavanca Z
+        Z = D - 0.50 * LAMBDA * X
+        # Área de aço As
         EPSILON_SAUX = DEFORMACAO_ACO(E_SCP, SIGMA, EPSILON_P, EPSILON_Y, F_P, F_Y)
         EPSILON_ST = EPSILON_S + EPSILON_SAUX
         F_YD = TENSAO_ACO(E_SCP, EPSILON_ST, EPSILON_P, EPSILON_Y, F_P, F_Y)
-    elif TIPO_CONCRETO == 'CA':
-        F_YD = F_Y / 1.15
-    A_S = M_SD / (Z * F_YD)
+        A_S = M_SD / (Z * F_YD)
+    elif (LAMBDA * X) > H_F:
+        # Deformações nas fibras comprimidas (concreto) e tracionadas (aço) 
+        KX = X / D
+        if KX > KX_23:
+            EPSILON_C = EPSILON_CU
+            EPSILON_S = (1 -  KX) * EPSILON_C 
+        elif KX < KX_23:
+            EPSILON_S = 10 / 1000
+            EPSILON_C = EPSILON_S / (1 - KX)
+        elif KX == KX_23:
+            EPSILON_S = 10 / 1000
+            EPSILON_C = EPSILON_CU 
+        # Braço de alavanca Z
+        Z = D - 0.50 * LAMBDA * X
+        # Área de aço As
+        EPSILON_SAUX = DEFORMACAO_ACO(E_SCP, SIGMA, EPSILON_P, EPSILON_Y, F_P, F_Y)
+        EPSILON_ST = EPSILON_S + EPSILON_SAUX
+        F_YD = TENSAO_ACO(E_SCP, EPSILON_ST, EPSILON_P, EPSILON_Y, F_P, F_Y)
+        M_1SD = (B_F - B_W) * H_F * ALPHA_C * F_CD * (D - 0.50 * H_F)
+        M_2SD = M_SD - M_1SD
+        A_1S = M_1SD / ((D - 0.50 * H_F) * F_YD)
+        A_2S = M_2SD / (Z * F_YD)
+        A_S = A_1S + A_2S
     return X, EPSILON_S, EPSILON_C, Z, A_S
 
 def VERIFICA_ARMADURA_FLEXAO(A_SCP, A_SCPNEC):
