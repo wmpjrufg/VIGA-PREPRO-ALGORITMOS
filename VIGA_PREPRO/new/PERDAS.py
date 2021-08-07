@@ -318,7 +318,7 @@ def BETAF_FLUENCIA(T_FIC, H_FIC):
     # Determinação do BETA_F
     AUX_0 = pow(T_FIC, 2) + A * T_FIC + B 
     AUX_1 = pow(T_FIC, 2) + C * T_FIC + D
-    BETA_S =  AUX_0 / AUX_1
+    BETA_F =  AUX_0 / AUX_1
     return BETA_F, A, B, C , D
 
 def CALCULO_TEMPO_FICTICIO(T, TEMP, TIPO_PERDA, TIPO_ENDURECIMENTO):
@@ -478,14 +478,14 @@ def PHI_FLUENCIA(F_CKJ, F_CK, U, A_C, MU_AR, ABAT, T_0, T_1, TEMP, TIPO_PERDA, T
     PHI = PHI_A + PHI_F * (BETA_F1 - BETA_F0) + PHI_D * BETA_D
     return PHI
 
-def PERDA_POR_FLUENCIA_NO_CONCRETO(P_IT0, SIGMA_PIT0, A_SCP, PHI, E_SCP, E_CCP, SIGMA_CABO):
+def PERDA_POR_FLUENCIA_NO_CONCRETO(P_IT0, SIGMA_PIT0, A_SCP, PHI, E_SCP, E_CCP28, SIGMA_CABO):
     """
     Esta função determina a perda de protensão devido ao efeito de fluência.
 
     Entrada:
     PHI         | Fator de fluência para cada carregamento estudado  |       | Py list
     E_SCP       | Módulo de Young do aço protendido                  | kN/m² | float
-    E_CCP       | Módulo de Young do concreto                        | kN/m² | float
+    E_CCP28     | Módulo de Young do concreto aos 28 dias            | kN/m² | float
     SIGMA_CABO  | Tensões no nível dos cabos                         | kN/m² | Py list
     P_IT0       | Carga inicial de protensão                         | kN    | float
     SIGMA_PIT0  | Tensão inicial de protensão                        | kN/m² | float
@@ -501,7 +501,7 @@ def PERDA_POR_FLUENCIA_NO_CONCRETO(P_IT0, SIGMA_PIT0, A_SCP, PHI, E_SCP, E_CCP, 
     AUX = 0
     for I_CONT in range(TAM):
         AUX += SIGMA_CABO[I_CONT] * PHI[I_CONT]
-    ALPHA_P = E_SCP / E_CCP
+    ALPHA_P = E_SCP / E_CCP28
     DELTASIGMA = ALPHA_P * AUX
     SIGMA_PIT1 = SIGMA_PIT0 - DELTASIGMA
     DELTAP = DELTASIGMA * A_SCP

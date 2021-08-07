@@ -1,7 +1,9 @@
 ################################################################################
 # UNIVERSIDADE FEDERAL DE CATALÃO (UFCAT)
 # WANDERLEI MALAQUIAS PEREIRA JUNIOR,                  ENG. CIVIL / PROF (UFCAT)
-# MATHEUS HENRIQUE MORATO DE MORAES                    ENG. CIVIL / PROF (UFCAT)
+# SYLVIA REGINA MESQUISTA DE ALMEIDA,                 ENG. CIVIL / PROF (UFG-GO)
+# MATHEUS HENRIQUE MORATO DE MORAES,                   ENG. CIVIL / PROF (UFCAT)
+# GERALDO MAGELA FILHO,                                ENG. CIVIL / PROF (UFCAT)
 # GUSTAVO GONÇALVES COSTA,                                    ENG. CIVIL (UFCAT)
 ################################################################################
 
@@ -20,7 +22,7 @@ import numpy as np
 
 def PROP_GEOMETRICA_I(H, B_FS, B_FI, B_W, H_S, H_I, H_SI, H_II):
     """
-    Esta função determina as propriedades geométricas de uma seção I.
+    Esta função determina as propriedades geométricas de uma seção I com abas inclinadas.
 
     Entrada:
     H         | Altura da viga                                     | m    | float
@@ -209,8 +211,7 @@ def PROP_MATERIAL(F_CK, TEMPO, CIMENTO, AGREGADO):
 
 def TENSAO_INICIAL(TIPO_PROT, TIPO_ACO, F_PK, F_YK):
     """
-    Esta função determina a tensão inicial de protensão e a carga ini-
-    cial de protensão.
+    Esta função determina a tensão inicial de protensão e a carga inicial de protensão.
 
     Entrada:
     TIPO_PROT  | Protensão utilizada                                  |       | string    
@@ -238,9 +239,9 @@ def TENSAO_INICIAL(TIPO_PROT, TIPO_ACO, F_PK, F_YK):
             SIGMA_PIT0 = min(0.74 * F_PK, 0.82 * F_YK)
     return SIGMA_PIT0
 
-def COMPRIMENTO_TRANSFERENCIA(PHI_L, F_YK, F_CTKINFJ, ETA_1, ETA_2, SIGMA_PI, H):
+def COMPRIMENTO_TRANSFERENCIA(PHI_L, F_YK, F_CTKINFJ, ETA_1, ETA_2, SIGMA_PI, H): ##################################
     """
-    Esta função calcula o comprimento de tranferência da armadura L_P
+    Esta função calcula o comprimento de tranferência da armadura L_P.
 
     Entrada:
     PHI_L      | Diâmetro da armadura                                 | m      | float
@@ -270,14 +271,14 @@ def ESFORCOS(Q, L, L_P):
     Esta função determina os esforços atuantes na viga biapoiada.
     
     Entrada:
-    Q           | Carga lineramente distribuida      | kN/m    | float
-    L           | Comprimento da viga                | m       | float
-    L_P
+    Q           | Carga lineramente distribuida      | kN/m  | float
+    L           | Comprimento da viga                | m     | float
+    L_P         | Comprimento de transferência       | m     | float
 
     Saída:
-    M          | Momento atuante no meio da viga    | kNm     | float
-    M_AP
-    V          | Cortante atuante no apoio da viga  | kN      | float
+    M          | Momento atuante no meio da viga    | kNm    | float
+    M_AP       | Momento atuante no L_P             | kNm    | float
+    V          | Cortante atuante no apoio da viga  | kN     | float
     """
     # Momento no meio do vão
     M_MV = Q * (L ** 2) / 8
@@ -286,6 +287,25 @@ def ESFORCOS(Q, L, L_P):
     # Cortanto nos apoios
     V_AP = Q * L / 2 
     return M_MV, M_AP, V_AP 
+
+def ESFORCOS_TRANSITORIOS(Q, L, CHI):
+    """
+    Esta função determina os esforços atuantes na viga biapoiada considerando
+    as situações de içamento e armazenamento.
+    
+    Entrada:
+    Q           | Carga lineramente distribuida                               | kN/m  | float
+    L           | Comprimento da viga                                         | m     | float
+    CHI         | Proporção de L para a posição dos dispositivos de içamento  |       | float
+
+    Saída:
+    M_POS       | Momento positivo atuante no meio da viga                    | kNm   | float
+    M_NEG       | Momento negativo atuante no apoio da viga                   | kNm   | float
+    """
+    # Momento no meio do vão
+    M_POS = (Q * (L ** 2) / 8) * (1 - 4 * CHI)
+    M_NEG = Q * ((CHI * L) ** 2) / 2
+    return M_POS, M_NEG
 
 def TENSOES_NORMAIS(P_I, A_C, E_P, W_INF, W_SUP, DELTA_P, DELTA_G1, DELTA_G2, DELTA_G3, DELTA_Q1, DELTA_Q2, PSI_Q1, M_G1, M_G2, M_G3, M_Q1, M_Q2):
     """
