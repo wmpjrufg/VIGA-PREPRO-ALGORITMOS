@@ -193,13 +193,13 @@ def PROP_MATERIAL(F_CK, TEMPO, CIMENTO, AGREGADO):
     F_CKJ = F_CK * BETA_1
     F_CKJ /= 1E3
     F_CK /= 1E3
-    if F_CKJ < 21 :
-        F_CKJ = 21
+    if F_CKJ < 25 :
+        F_CKJ = 25
     # Propriedades em situação de tração F_CT idade TEMPO em dias
     if F_CK <= 50:
-      F_CTMJ = 0.3 * F_CKJ ** (2/3)
+          F_CTMJ = 0.3 * F_CKJ ** (2/3)
     elif F_CK > 50:
-      F_CTMJ = 2.12 * np.log(1 + 0.11 * F_CKJ)
+          F_CTMJ = 2.12 * np.log(1 + 0.11 * F_CKJ)
     F_CTMJ *= 1E3
     F_CTKINFJ = 0.7 * F_CTMJ 
     F_CTKSUPJ = 1.3 * F_CTMJ
@@ -283,7 +283,7 @@ def ESFORCOS(Q, L, L_P):
     # Momento no meio do vão
     M_MV = Q * (L ** 2) / 8
     # Momento no apoio nas condições iniciais e finais
-    M_AP = (Q * L / 2) * L_P - (Q * L_P / 2) * (L_P / 2)
+    M_AP = (Q * L / 2) * L_P - (Q * L_P / 1) * (L_P / 2)
     # Cortanto nos apoios
     V_AP = Q * L / 2 
     return M_MV, M_AP, V_AP 
@@ -738,29 +738,39 @@ def MOMENTO_MINIMO(W_INF, F_CTKSUPJ):
     M_MIN = 0.80 * W_INF * F_CTKSUPJ
     return M_MIN
 
-def ARMADURA_ASCP_ELS(A_C, W_INF, E_P, PSI1_Q1, PSI2_Q1, M_G1, M_G2, M_G3, M_Q1, SIGMA_PI, F_CTKINFJ):
+def ARMADURA_ASCP_ELS(A_C, I_C, Y_I, E_P, PSI1_Q1, PSI2_Q1, M_G1, M_G2, M_G3, M_Q1, SIGMA_PI, F_CTKINFJ, FATOR_SEC):
     """
     Esta função calcula a área de aço mínima em função dos limites do ELS.
 
     Entrada:
     A_C         | Área da  seção transversal da viga                       | m²      | float
-    W_INF       | Modulo de resistência inferior                           | m³      | float
+    I_C         | Inércia da viga                                          | m^4     | float
+    Y_I         | Distância do CG que deseja-se calcular a tensão          | m       | float
     E_P         | Excentricidade de protensão                              | m       | float
     PSI1_Q1     | Coeficiente parcial de segurança PSI_1                   |         | float
     PSI2_Q1     | Coeficiente parcial de segurança PSI_2                   |         | float
     M_          | Momentos caracteristicos da peça (G,Q)                   | kN.m    | float
     SIGMA_PI    | Tensão de protensão                                      | kN/m²   | float
-    F_CTKINFJ   | Resistência caracteristica a tração inferior na idade j  | kN/m²   | float 
+    F_CTKINFJ   | Resistência caracteristica a tração inferior na idade j  | kN/m²   | float
+    FATOR_SEC   | Fator de correção da resistência                         |         | float
 
     Saída:
     A_SCPINICIAL| Área de aço inicial respeitando os limites de serviço    | m²      | float
     """
-    LIMITE_TRAC0 = -1.50 * F_CTKINFJ
-    AUX_0 = SIGMA_PI / A_C + (SIGMA_PI * E_P) / W_INF
-    AUX_1 = (M_G1 + M_G2 + M_G3) / W_INF + (PSI1_Q1 * M_Q1) / W_INF
+    # ELS-F
+    if FATOR_SEC == 'RETANGULAR':
+        ALPHA_F = 1.50
+    elif FATOR_SEC == 'I':
+        ALPHA_F = 1.30
+    elif FATOR_SEC == 'DUPLO T':
+        ALPHA_F = 1.20
+    LIMITE_TRAC0 = - ALPHA_F * F_CTKINFJ
+    AUX_0 = SIGMA_PI / A_C + (SIGMA_PI * E_P * Y_I) / I_C
+    AUX_1 = ((M_G1 + M_G2 + M_G3) * Y_I) / I_C + ((PSI1_Q1 * M_Q1) * Y_I) / I_C
     A_SCP0 = (LIMITE_TRAC0 +  AUX_1) / AUX_0
+    # ELS-D
     LIMITE_TRAC1 = 0
-    AUX_2 = (M_G1 + M_G2 + M_G3) / W_INF + (PSI2_Q1 * M_Q1) / W_INF
+    AUX_2 = ((M_G1 + M_G2 + M_G3) * Y_I) / I_C + ((PSI2_Q1 * M_Q1) * Y_I) / I_C
     A_SCP1 = (LIMITE_TRAC1 + AUX_2) / AUX_0
     A_SCPINICIAL = max(A_SCP0, A_SCP1)
     return A_SCPINICIAL
@@ -819,21 +829,17 @@ def GEOMETRIC_PROPERTIES_STATE_I(H, B_F, B_W, H_F, A_SB, ALPHA_MOD, D):
     return A_C, X_I, I_I
 
 def GEOMETRIC_PROPERTIES_STATE_II(H, B_F, B_W, H_F, A_SB, A_ST, ALPHA_MOD, D, D_L):
-    if B_F <= B_W:
+    A_1 = B_F / 2
+    A_2 = H_F * (0) + (ALPHA_MOD - 1) * A_ST + ALPHA_MOD * A_SB
+    A_3 = -D_L*(ALPHA_MOD - 1) * A_ST - D * ALPHA_MOD * A_SB - (H_F ** 2) / 2 * (0)
+    X_II = (- A_2 + (A_2 ** 2 - 4 * A_1 * A_3) ** 0.50) / (2 * A_1)
+    if X_II <= H_F:
+        pass
+    elif X_II > H_F:
         A_1 = B_W / 2
-        A_2 = H_F * (B_F - B_W) + (ALPHA_MOD - 1) * A_ST + ALPHA_MOD * A_SB
-        A_3 = - D_L * (ALPHA_MOD - 1) * A_ST - D * ALPHA_MOD * A_SB - (H_F ** 2) / 2 * (B_F - B_W)
-        X_II = (-A_2 + np.sqrt(A_2 ** 2 - 4 * A_1 * A_3)) / (2 * A_1)
-    elif B_F > B_W:
-        A_1 = B_F / 2
         A_2 = H_F * (0) + (ALPHA_MOD - 1) * A_ST + ALPHA_MOD * A_SB
         A_3 = -D_L*(ALPHA_MOD - 1) * A_ST - D * ALPHA_MOD * A_SB - (H_F ** 2) / 2 * (0)
         X_II = (- A_2 + (A_2 ** 2 - 4 * A_1 * A_3) ** 0.50) / (2 * A_1)
-        if X_II > H_F:
-            A_1 = B_W / 2
-            A_2 = H_F * (B_F - B_W) + (ALPHA_MOD - 1) * A_ST + ALPHA_MOD * A_SB
-            A_3 = - D_L * (ALPHA_MOD - 1) * A_ST - D * ALPHA_MOD * A_SB - (H_F ** 2) / 2 * (B_F - B_W)
-            X_II = (- A_2 + np.sqrt(A_2 ** 2 - 4 * A_1 * A_3)) / (2 * A_1)    
     if X_II <= H_F:
         I_II = (B_F * X_II ** 3) / 3 + ALPHA_MOD * A_SB * (X_II - D) ** 2 + (ALPHA_MOD - 1) * A_ST * (X_II - D_L) ** 2
     else:
@@ -878,17 +884,17 @@ def SECANT_YOUNG_MODULUS(F_CK, E_CI):
     E_CS = ALPHA_I * E_CI
     return E_CS
 
-def M_R_BENDING_MOMENT(GEOMETRIC_FACTOR, F_CT, H, X_I, I_I, P_I, A_C, W_INF, E_P):
-    if GEOMETRIC_FACTOR == 0:
-        ALPHA = 1.2
-    elif GEOMETRIC_FACTOR == 1:
-        ALPHA = 1.3
-    elif GEOMETRIC_FACTOR == 2:
-        ALPHA = 1.5
+def M_R_BENDING_MOMENT(FATOR_SEC, F_CT, H, X_I, I_I, P_I, A_C, W_INF, E_P):
+    if FATOR_SEC == 'RETANGULAR':
+        ALPHA_F = 1.50
+    elif FATOR_SEC == 'I':
+        ALPHA_F = 1.30
+    elif FATOR_SEC == 'DUPLO T':
+        ALPHA_F = 1.20
     Y_T = H - X_I
     AUX = (1 / A_C) + (E_P / W_INF)
     M_0 = P_I * W_INF * AUX
-    M_R = M_0 + ALPHA * F_CT * (I_I / Y_T)
+    M_R = M_0 + ALPHA_F * F_CT * (I_I / Y_T)
     return M_R
 
 def EPSILON_COEFFICIENT(T):
