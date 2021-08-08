@@ -240,14 +240,14 @@ def PERDA_RELAXACAO_ARMADURA(P_IT0, SIGMA_PIT0, T_0, T_1, TEMP, F_PK, A_SCP, TIP
     PSI                | Coeficiente de relaxação do aço                                    | %     | float
     """
     # Determinação PSI_1000
-    RHO_SIGMA = SIGMA_PIT0 / F_PK 
-    if T_1 > (20 * 365):  
-          PSI_1000 = 2.5
-    else:
-          PSI_1000 = TABELA_PSI1000(TIPO_FIO_CORD_BAR, TIPO_ACO, RHO_SIGMA)         
+    RHO_SIGMA = SIGMA_PIT0 / F_PK
+    PSI_1000 = TABELA_PSI1000(TIPO_FIO_CORD_BAR, TIPO_ACO, RHO_SIGMA)      
     # Determinação do PSI no intervalo de tempo T_1 - T_0
     DELTAT_COR = (T_1 - T_0) * TEMP / 20
-    PSI =  PSI_1000 * (DELTAT_COR / 41.67) ** 0.15
+    if T_1 > (49 * 365):
+        PSI =  2.50 * PSI_1000
+    else:
+        PSI =  PSI_1000 * (DELTAT_COR / 41.67) ** 0.15
     # Perdas de protensão
     DELTASIGMA = (PSI / 100) * SIGMA_PIT0
     SIGMA_PIT1 = SIGMA_PIT0 - DELTASIGMA
@@ -509,7 +509,7 @@ def PERDA_POR_FLUENCIA_NO_CONCRETO(P_IT0, SIGMA_PIT0, A_SCP, PHI, E_SCP, E_CCP28
     DELTAPERC = (DELTAP / P_IT0) * 100
     return DELTAPERC, P_IT1, SIGMA_PIT1
 
-def INTERACAO_ENTRE_PERDAS_PROGRESSIVAS(E_P, A_C, I_C, E_SCP, E_CCP28, DELTASIGMA_RETRACAO, DELTASIGMA_FLUENCIA, SIGMA_PIT0, PSI, A_SCP, PHI_0):
+def INTERACAO_ENTRE_PERDAS_PROGRESSIVAS(E_P, A_C, I_C, E_SCP, E_CCP28, DELTASIGMA_RETRACAO, DELTASIGMA_FLUENCIA, P_IT0, SIGMA_PIT0, PSI, A_SCP, PHI_0):
     """
     Esta função determina a perdas progressivas de protensão considerando o efeito conjunto
     das perdas.
@@ -522,6 +522,7 @@ def INTERACAO_ENTRE_PERDAS_PROGRESSIVAS(E_P, A_C, I_C, E_SCP, E_CCP28, DELTASIGM
     E_CCP28             | Módulo de Young do concreto idade 28 dias  | kN/m² | float
     DELTASIGMA_RETRACAO | Perda de protensão devido a retração       | kN/m² | float
     DELTASIGMA_FLUENCIA | Perda de protensão devido a fluência       | kN/m² | float
+    P_IT0               | Carga inicial de protensão                 | kN    | float
     SIGMA_PIT0          | Tensão inicial de protensão                | kN/m² | float
     PSI                 | Coeficiente de relaxação do aço            | %     | float    
     A_SCP               | Área de total de armadura protendida       | m²    | float
